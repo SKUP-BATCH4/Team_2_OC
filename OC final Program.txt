@@ -1,0 +1,214 @@
+/*
+ * File:   vish os.c
+ * Author: User
+ *
+ * Created on October 13, 2022, 5:57 PM
+ */
+
+// PIC18F458 Configuration Bit Settings
+
+// 'C' source line config statements
+
+// CONFIG1H
+#pragma config OSC = HS         // Oscillator Selection bits (HS oscillator)
+#pragma config OSCS = OFF       // Oscillator System Clock Switch Enable bit (Oscillator system clock switch option is disabled (main oscillator is source))
+
+// CONFIG2L
+#pragma config PWRT = OFF       // Power-up Timer Enable bit (PWRT disabled)
+#pragma config BOR = OFF        // Brown-out Reset Enable bit (Brown-out Reset disabled)
+#pragma config BORV = 25        // Brown-out Reset Voltage bits (VBOR set to 2.5V)
+
+// CONFIG2H
+#pragma config WDT = OFF        // Watchdog Timer Enable bit (WDT disabled (control is placed on the SWDTEN bit))
+#pragma config WDTPS = 128      // Watchdog Timer Postscale Select bits (1:128)
+
+// CONFIG4L
+#pragma config STVR = OFF       // Stack Full/Underflow Reset Enable bit (Stack Full/Underflow will not cause Reset)
+#pragma config LVP = OFF        // Low-Voltage ICSP Enable bit (Low-Voltage ICSP disabled)
+
+// CONFIG5L
+#pragma config CP0 = OFF        // Code Protection bit (Block 0 (000200-001FFFh) not code protected)
+#pragma config CP1 = OFF        // Code Protection bit (Block 1 (002000-003FFFh) not code protected)
+#pragma config CP2 = OFF        // Code Protection bit (Block 2 (004000-005FFFh) not code protected)
+#pragma config CP3 = OFF        // Code Protection bit (Block 3 (006000-007FFFh) not code protected)
+
+// CONFIG5H
+#pragma config CPB = OFF        // Boot Block Code Protection bit (Boot Block (000000-0001FFh) not code protected)
+#pragma config CPD = OFF        // Data EEPROM Code Protection bit (Data EEPROM not code protected)
+
+// CONFIG6L
+#pragma config WRT0 = OFF       // Write Protection bit (Block 0 (000200-001FFFh) not write protected)
+#pragma config WRT1 = OFF       // Write Protection bit (Block 1 (002000-003FFFh) not write protected)
+#pragma config WRT2 = OFF       // Write Protection bit (Block 2 (004000-005FFFh) not write protected)
+#pragma config WRT3 = OFF       // Write Protection bit (Block 3 (006000-007FFFh) not write protected)
+
+// CONFIG6H
+#pragma config WRTC = OFF       // Configuration Register Write Protection bit (Configuration registers (300000-3000FFh) not write protected)
+#pragma config WRTB = OFF       // Boot Block Write Protection bit (Boot Block (000000-0001FFh) not write protected)
+#pragma config WRTD = OFF       // Data EEPROM Write Protection bit (Data EEPROM not write protected)
+
+// CONFIG7L
+#pragma config EBTR0 = OFF      // Table Read Protection bit (Block 0 (000200-001FFFh) not protected from Table Reads executed in other blocks)
+#pragma config EBTR1 = OFF      // Table Read Protection bit (Block 1 (002000-003FFFh) not protected from Table Reads executed in other blocks)
+#pragma config EBTR2 = OFF      // Table Read Protection bit (Block 2 (004000-005FFFh) not protected from Table Reads executed in other blocks)
+#pragma config EBTR3 = OFF      // Table Read Protection bit (Block 3 (006000-007FFFh) not protected from Table Reads executed in other blocks)
+
+// CONFIG7H
+#pragma config EBTRB = OFF      // Boot Block Table Read Protection bit (Boot Block (000000-0001FFh) not protected from Table Reads executed in other blocks)
+
+// #pragma config statements should precede project file includes.
+// Use project enums instead of #define for ON and OFF.
+
+
+
+
+
+#include <xc.h>
+
+#define _XTAL_FREQ 20000000
+#define ENABLE 1
+#define DISABLE 0
+
+void mask() {
+    RXM0SIDH = 0X14;
+    RXM0SIDL = 0X00;
+}
+
+void filter() {
+    RXF0SIDH = 0X14;
+    RXF0SIDL = 0X00;
+}
+
+unsigned int receive() {
+    unsigned int msg;
+    CANCON = 0X00;
+    RXB0SIDH = 0x14;
+    RXB0SIDL = 0x00;
+    RXB0DLC = 0x08;
+    msg = RXB0D0;
+    RXB0CONbits.RXM0 = 0X01;
+    mask();
+    filter();
+    return msg;
+}
+
+unsigned int write(unsigned int data, unsigned int add) {
+     data = receive();
+    EEDATA = data;
+    EEADR = 0xF2;
+    EECON2 = 0x55;
+    EECON2 = 0xAA;
+    EECON1bits.WREN = 1;
+    EECON1bits.WR = 1;
+    return data;
+}
+
+unsigned int transmit() {
+    CANCON = 0x00;
+    // TXB0CON=0x77;
+    TXB0SIDH = 0x14; //high identifier 
+    TXB0SIDL = 0x00; //low identifier
+    //data length code
+    // actual data
+    TXB0D0 = 0x00;
+    TXB0D1 = 0x01;
+    TXB0D2 = 0x02;
+    TXB0D3 = 0x03;
+    TXB0DLC = 0x08;
+    TXB0CON = 0x08; //transmit request to check abrt error
+
+    TXB0CONbits.TXREQ = 1;
+}
+
+unsigned int sw() {
+    //    TRISBbits.RB0 = 1;
+    //    TRISBbits.RB1 = 1;
+    //    TRISBbits.RB0 = 0;
+    //    TRISBbits.RB1 = 0;
+
+    while (1) {
+
+        if (PORTBbits.RB0 == 1 && PORTBbits.RB1 == 0) {
+            // while (1) {
+            LATAbits.LA0 = 1;
+            __delay_ms(5000);
+            LATAbits.LA0 = 0;
+            __delay_ms(800);
+            // }
+        }
+        if (PORTBbits.RB0 == 0 && PORTBbits.RB1 == 0) {
+
+            // while (1) {
+            LATAbits.LA0 = 1;
+            __delay_ms(10000);
+            LATAbits.LA0 = 0;
+            __delay_ms(800);
+
+            // }
+        }
+        if (PORTBbits.RB0 == 1 && PORTBbits.RB1 == 1) {
+
+            // while (1) {
+            LATAbits.LA0 = 1;
+        } else if (PORTBbits.RB0 == 0 && PORTBbits.RB1 == 1) {
+            LATAbits.LA0 = 0;
+            transmit();
+        }
+    }
+}
+
+unsigned int seat_belt() {
+    unsigned int data=receive();
+    if (data==0x04){
+        LATAbits.LA1 = 0;
+        sw();
+    } else {
+        LATAbits.LA1 = 1;
+    }
+
+}
+
+unsigned int read(unsigned char add) {
+
+    EECON1bits.RD = 1;
+    EEADR = 0xF2;
+    seat_belt();
+}
+
+void system_init() //function definition
+{
+    GIE = ENABLE; // enable global interrrupt
+    PEIE = ENABLE;
+}
+
+unsigned int can_init() //function definition
+{
+    TRISBbits.RB3 = ENABLE; //configured as CAN_RX(input)
+    TRISBbits.RB2 = DISABLE; //configured as CAN_Tx(output);
+
+    CANCON |= 0x80; //requests configration mode
+    while (CANSTAT != 0x00) { //condition  checks for configration mode
+        //baud rate is  250kHz
+        BRGCON1 = 0xC1; //sync jump width=4;bd clear bits=4       
+        BRGCON2 = 0xAE; //phase segment 1 time =6,propagation time=7
+        BRGCON3 = 0x45; //phase segment 2 time =6
+        CIOCON = 0x20; //CANTX pin will drive VDD when recessive
+        CANCON = 0x00;
+    }//requests normal mode
+
+}
+
+void main() {
+    INTCONbits.GIE = 1;
+    INTCONbits.PEIE = 1;
+    INTCON2bits.RBPU = 0;
+
+    TRISA = 0;
+    TRISB = 0;
+    LATA = 0;
+    system_init();
+    can_init();
+    write(0x0A, 0xAA);
+    seat_belt();
+
+}
